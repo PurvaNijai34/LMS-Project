@@ -1,4 +1,3 @@
-// server/config/mongodb.js
 import mongooose from 'mongoose'
 
 // connect to the MongoDb Database
