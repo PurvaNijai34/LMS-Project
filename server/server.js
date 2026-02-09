@@ -17,16 +17,10 @@ app.use(cors())
 
 // route
 app.get('/',(req, res)=> res.send("Api working") )
-// 🔥 CLERK WEBHOOK (RAW BODY ONLY)
-// app.post(
-//   '/clerk',
-//   express.raw({ type: 'application/json' }),
-//   clerkWebhooks
-// )
-
+// ⚠️ RAW BODY for Clerk webhook
 app.post(
   "/clerk",
-  express.json(), // temporarily json OK
+  express.raw({ type: "application/json" }),
   clerkWebhooks
 );
 
