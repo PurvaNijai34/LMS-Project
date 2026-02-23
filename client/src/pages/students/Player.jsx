@@ -8,9 +8,18 @@ import humanizeDuration from "humanize-duration";
 import YouTube from "react-youtube";
 import Footer from "../../components/student/Footer";
 import Rating from "../../components/student/Rating";
+import axios from "axios";
+import Loading from "../../components/student/Loading.jsx";
+import { toast } from "react-toastify";
 const Player = () => {
-  const { enrolledCourses, calculateChapterTime, userData } =
-    useContext(AppContext);
+  const {
+    enrolledCourses,
+    calculateChapterTime,
+    userData,
+    backendUrl,
+    getToken,
+    fetchUserEnrolledCourses,
+  } = useContext(AppContext);
 
   const { courseId } = useParams();
   const [courseData, setCourseData] = useState(null);
@@ -24,6 +33,11 @@ const Player = () => {
     enrolledCourses.map((course) => {
       if (course._id === courseId) {
         setCourseData(course);
+        course.courseRatings.map((item) => {
+          if (item.userId === userData._id) {
+            setInitialRating(item.rating);
+          }
+        });
       }
     });
   };
@@ -31,10 +45,78 @@ const Player = () => {
   const toggleSection = (index) => {
     setOpenSections((prev) => ({ ...prev, [index]: !prev[index] }));
   };
+
   useEffect(() => {
-    getCourseData();
+    if (enrolledCourses.length > 0) {
+      getCourseData();
+    }
   }, [enrolledCourses]);
-  return (
+
+  const markLectureAsCompleted = async (lectureId) => {
+    try {
+      const token = await getToken();
+      const { data } = await axios.post(
+        backendUrl + "/api/user/update-course-progress",
+        { courseId, lectureId },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (data.success) {
+        toast.success(data.message);
+        getCourseProgress();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+
+      toast.error(error.message);
+    }
+  };
+
+  const getCourseProgress = async () => {
+    try {
+      const token = await getToken();
+      const { data } = await axios.post(
+        backendUrl + "/api/user/get-course-progress",
+        { courseId },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (data.success) {
+        setProgressData(data.progressData);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleRate = async (rating) => {
+    try {
+      const token = await getToken();
+      const { data } = await axios.post(
+        backendUrl + "/api/user/add-rating",
+        { courseId, rating },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (data.success) {
+        toast.success(data.message);
+        fetchUserEnrolledCourses();
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+
+  useEffect(() => {
+  getCourseProgress()
+}, [])
+  return courseData ? (
     <>
       <div className="flex flex-col-reverse gap-10 p-4 sm:p-10 md:grid md:grid-cols-2 md:px-36">
         {/* left Cloumn */}
@@ -79,7 +161,7 @@ const Player = () => {
                         <li key={i} className="flex items-start gap-2 py-1">
                           <img
                             src={
-                              false ? assets.blue_tick_icon : assets.play_icon
+                              progressData ?.lectureCompleted?.includes(lecture.lectureId) ? assets.blue_tick_icon : assets.play_icon
                             }
                             alt="play icon"
                             className="w-4 h-4 mt-1"
@@ -116,13 +198,11 @@ const Player = () => {
                 </div>
               ))}
           </div>
-        
-              <div className='flex items-center gap-2 py-3 mt-10 '>
-            <h1 className='text-xl font-bold'> Rate this Course:</h1>
-            <Rating initialRating={0}/>
 
+          <div className="flex items-center gap-2 py-3 mt-10 ">
+            <h1 className="text-xl font-bold"> Rate this Course:</h1>
+            <Rating initialRating={initialRating} onRate={handleRate} />
           </div>
-
         </div>
 
         {/* right Cloumn */}
@@ -156,9 +236,9 @@ const Player = () => {
         </div>
       </div>
 
-      <Footer/>
+      <Footer />
     </>
-  );
+  ) : <Loading/> ;
 };
 
 export default Player;

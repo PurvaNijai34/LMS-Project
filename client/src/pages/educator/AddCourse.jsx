@@ -2,7 +2,12 @@ import React, { useEffect, useRef, useState } from "react";
 import uniqid from "uniqid";
 import { assets } from "../../assets/assets";
 import Quill from "quill";
+import { useContext } from "react";
+import { AppContext } from "../../context/AppContext";
+import axios from "axios";
+import { toast } from "react-toastify";
 const AddCourse = () => {
+  const { backendUrl, getToken } = useContext(AppContext);
   const quillRef = useRef(null);
   const editorRef = useRef(null);
   const [courseTitle, setCourseTitle] = useState("");
@@ -92,7 +97,44 @@ const AddCourse = () => {
     });
   };
   const handleSubmit = async (e) => {
-    e.prevetDefault();
+    try {
+      e.preventDefault();
+      if (!image) {
+        toast.error("Thumbnail Not Selected");
+      }
+
+      const courseData = {
+        courseTitle,
+        courseDescription: quillRef.current.root.innerHTML,
+        coursePrice: Number(coursePrice),
+        discount: Number(discount),
+        courseContent: chapters,
+      };
+      const formData = new FormData();
+      formData.append("courseData", JSON.stringify(courseData));
+      formData.append("image", image);
+
+      const token = await getToken();
+      const { data } = await axios.post(
+        backendUrl + "/api/educator/add-course",
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      if (data.success) {
+        toast.success(data.message);
+        setCourseTitle("");
+        setCoursePrice(0);
+        setDiscount(0);
+        setImage(null);
+        setChapters([]);
+        quillRef.current.root.innerHTML = "";
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   useEffect(() => {
@@ -104,13 +146,10 @@ const AddCourse = () => {
     }
   }, []);
   return (
-    <div
-      className="h-screen overflow-scroll flex flex-col items-start
-  justify-between md:p-8 md:pb-0 p-4 pt-8 pb-0"
-    >
+    <div className="flex flex-col items-start justify-between h-screen p-4 pt-8 pb-0 overflow-scroll md:p-8 md:pb-0">
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-4 max-w-md w-full text-gray-500"
+        className="flex flex-col w-full max-w-md gap-4 text-gray-500"
       >
         <div className="flex flex-col gap-1">
           <p>Course Title</p>
@@ -130,7 +169,7 @@ const AddCourse = () => {
           <div ref={editorRef}></div>
         </div>
 
-        <div className="flex items-center justify-between flex-wrap">
+        <div className="flex flex-wrap items-center justify-between">
           <div className="flex flex-col gap-1">
             <p>Course Price</p>
             <input
@@ -143,14 +182,13 @@ const AddCourse = () => {
               required
             />
           </div>
-          <div className="flex md:flex-row flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-3 md:flex-row">
             <p>Course Thumbnail</p>
             <label htmlFor="thumbnailImage" className="flex items-center gap-3">
               <img
                 src={assets.file_upload_icon}
                 alt=""
-                className="p-3 bg-blue-500
-      rounded"
+                className="p-3 bg-blue-500 rounded"
               />
               <input
                 type="file"
@@ -185,8 +223,8 @@ const AddCourse = () => {
         {/* adding Chapters and lectures */}
         <div>
           {chapters.map((chapter, chapterIndex) => (
-            <div key={chapterIndex} className="bg-white border rounded-lg mb-4">
-              <div className="flex justify-between items-center p-4 border-b">
+            <div key={chapterIndex} className="mb-4 bg-white border rounded-lg">
+              <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center">
                   <img
                     onClick={() => handleChapter("toggle", chapter.chapterId)}
@@ -217,8 +255,7 @@ const AddCourse = () => {
                   {chapter.chapterContent.map((lecture, lectureIndex) => (
                     <div
                       key={lectureIndex}
-                      className="flex justify-between
-        items-center mb-2"
+                      className="flex items-center justify-between mb-2"
                     >
                       <span>
                         {lectureIndex + 1}. {lecture.lectureTitle} -{" "}
@@ -247,7 +284,7 @@ const AddCourse = () => {
                     </div>
                   ))}
                   <div
-                    className="inline-flex bg-gray-100 p-2 rounded cursor-pointer mt-2"
+                    className="inline-flex p-2 mt-2 bg-gray-100 rounded cursor-pointer"
                     onClick={() => handleLecture("add", chapter.chapterId)}
                   >
                     + Add Lecture
@@ -257,28 +294,22 @@ const AddCourse = () => {
             </div>
           ))}
           <div
-            className="flex justify-center items-center bg-blue-100 p-2 rounded-lg cursor-pointer"
+            className="flex items-center justify-center p-2 bg-blue-100 rounded-lg cursor-pointer"
             onClick={() => handleChapter("add")}
           >
             + Add Chapter
           </div>
 
           {showPopup && (
-            <div
-              className="fixed inset-0 flex items-center justify-center
-    bg-gray-800 bg-opacity-50"
-            >
-              <div
-                className="bg-white text-gray-700 p-4 rounded relative w-full
-      max-w-80"
-              >
-                <h2 className="text-lg font-semibold mb-4">Add Lecture</h2>
+            <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
+              <div className="relative w-full p-4 text-gray-700 bg-white rounded max-w-80">
+                <h2 className="mb-4 text-lg font-semibold">Add Lecture</h2>
 
                 <div className="mb-2">
                   <p>Lecture Title</p>
                   <input
                     type="text"
-                    className="mt-1 block w-full border rounded py-1 px-2"
+                    className="block w-full px-2 py-1 mt-1 border rounded"
                     value={lectureDetails.lectureTitle}
                     onChange={(e) =>
                       setLectureDetails({
@@ -292,7 +323,7 @@ const AddCourse = () => {
                   <p>Duration (minutes)</p>
                   <input
                     type="text"
-                    className="mt-1 block w-full border rounded py-1 px-2"
+                    className="block w-full px-2 py-1 mt-1 border rounded"
                     value={lectureDetails.lectureDuration}
                     onChange={(e) =>
                       setLectureDetails({
@@ -307,7 +338,7 @@ const AddCourse = () => {
                   <p>Lecture Url</p>
                   <input
                     type="text"
-                    className="mt-1 block w-full border rounded py-1 px-2"
+                    className="block w-full px-2 py-1 mt-1 border rounded"
                     value={lectureDetails.lectureUrl}
                     onChange={(e) =>
                       setLectureDetails({
@@ -335,7 +366,7 @@ const AddCourse = () => {
 
                 <button
                   type="button"
-                  className="w-full bg-blue-400 text-white px-4 py-2 rounded"
+                  className="w-full px-4 py-2 text-white bg-blue-400 rounded"
                   onClick={addLecture}
                 >
                   Add
@@ -344,7 +375,7 @@ const AddCourse = () => {
                 <img
                   onClick={() => setShowPopup(false)}
                   src={assets.cross_icon}
-                  className="absolute top-4 right-4 w-4 cursor-pointer"
+                  className="absolute w-4 cursor-pointer top-4 right-4"
                   alt=""
                 />
               </div>
@@ -352,7 +383,7 @@ const AddCourse = () => {
           )}
         </div>
         <button
-          onClick={addLecture}
+          onClick={handleSubmit}
           type="submit"
           className="bg-black text-white w-max py-2.5 px-8
   rounded my-4"
